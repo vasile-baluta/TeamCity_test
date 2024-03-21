@@ -14,6 +14,7 @@ services:
   bitbucket:
     image: atlassian/bitbucket-server
     container_name: bitbucket
+    restart: always  # This service will restart automatically
     ports:
       - "7990:7990"
       - "7999:7999"
@@ -34,3 +35,12 @@ services:
       - bitbucket
     command: sh -c "apk add --no-cache curl && while true; do sleep 10 && curl --retry 10 --retry-delay 5 --retry-connrefused http://teamcity:8111/webhooks/bitbucket; done"
 
+  teamcity-agent:
+    image: jetbrains/teamcity-agent
+    container_name: teamcity-agent
+    environment:
+      - SERVER_URL=http://teamcity:8111
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - teamcity
