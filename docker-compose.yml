@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  teamcity:
+    image: jetbrains/teamcity-server
+    container_name: teamcity
+    ports:
+      - "8111:8111"
+    environment:
+      - TEAMCITY_SERVER_MEM_OPTS=-Xmx750m -XX:ReservedCodeCacheSize=240m
+    volumes:
+      - ./teamcity/data:/data/teamcity_server/datadir
+
+  bitbucket:
+    image: atlassian/bitbucket-server
+    container_name: bitbucket
+    restart: always  # This service will restart automatically
+    ports:
+      - "7990:7990"
+      - "7999:7999"
+    environment:
+      - SERVER_PROXY_NAME=localhost
+      - SERVER_PROXY_PORT=7990
+      - JVM_MINIMUM_MEMORY=512m
+      - JVM_MAXIMUM_MEMORY=2048m
+      - JVM_SUPPORT_RECOMMENDED_ARGS=-XX:G1HeapRegionSize=4m -XX:MaxGCPauseMillis=200 -XX:+UseG1GC
+    volumes:
+      - ./bitbucket/data:/var/atlassian/application-data/bitbucket
+
+  teamcity-bitbucket-connector:
+    image: alpine:latest
+    container_name: teamcity-bitbucket-connector
+    depends_on:
+      - teamcity
+      - bitbucket
+    command: sh -c "apk add --no-cache curl && while true; do sleep 10 && curl --retry 10 --retry-delay 5 --retry-connrefused http://teamcity:8111/webhooks/bitbucket; done"
+
+  teamcity-agent:
+    image: jetbrains/teamcity-agent
+    container_name: teamcity-agent
+    environment:
+      - SERVER_URL=http://teamcity:8111
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - teamcity
